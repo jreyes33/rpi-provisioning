@@ -1,0 +1,45 @@
+---
+- hosts: all
+  remote_user: root
+
+  vars_prompt:
+    - name: username
+      prompt: admin username
+      private: no
+    - name: password
+      prompt: password for new user
+      private: yes
+      confirm: yes
+      salt_size: 7
+      encrypt: sha512_crypt
+
+  tasks:
+    - name: install sudo
+      pacman: name=sudo state=present
+    - name: allow members of wheel group to use sudo without password
+      lineinfile:
+        "dest=/etc/sudoers
+        state=present
+        backup=yes
+        backrefs=yes
+        regexp='# %wheel ALL=\\(ALL\\) NOPASSWD: ALL'
+        line='%wheel ALL=(ALL) NOPASSWD: ALL'"
+    - name: create admin account
+      user:
+        name={{ username }}
+        state=present
+        groups=wheel
+        append=yes
+        password={{ password }}
+    - name: disable ssh for root
+      lineinfile:
+        dest=/etc/ssh/sshd_config
+        state=present
+        backup=yes
+        backrefs=yes
+        regexp='^#PermitRootLogin'
+        line='PermitRootLogin no'
+    - name: restart sshd service
+      service:
+        name=sshd
+        state=restarted
